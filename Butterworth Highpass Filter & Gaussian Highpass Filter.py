@@ -1,41 +1,61 @@
+# FEBRIYADI
+# F55121082
+
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-# membaca gambar
-img = cv2.imread('image/max.jpg',0)
-rows, cols = img.shape
+# Load image in grayscale mode
+img = cv2.imread('image/max.jpg', cv2.IMREAD_GRAYSCALE)
 
-# membuat filter Butterworth Highpass
-# membuat filter highpass Butterworth 2D dengan jari-jari 30 dan orde 2
-butterworth_hp = np.zeros((rows, cols))
-D = 30
-n = 2
-for i in range(rows):
-    for j in range(cols):
-        butterworth_hp[i, j] = 1 / (1 + (D / np.sqrt((i - rows/2)**2 + (j - cols/2)**2))**(2*n))
+# Butterworth  highpass filter
+def butterworth_highpass_filter(img, cutoff, order):
+    M, N = img.shape
+    center = (M//2, N//2)
+    u, v = np.meshgrid(np.arange(N)-center[1], np.arange(M)-center[0])
+    D = np.sqrt(u**2 + v**2)
+    H = 1 / (1 + (cutoff / D)**(2*order))
+    F = np.fft.fft2(img)
+    Fshift = np.fft.fftshift(F)
+    Gshift = H * Fshift
+    G = np.fft.ifftshift(Gshift)
+    g = np.fft.ifft2(G).real
+    return g
 
-# terapkan filter
-butterworth_hp_img = np.fft.fftshift(np.fft.fft2(img)) * butterworth_hp
-butterworth_hp_img = np.real(np.fft.ifft2(np.fft.ifftshift(butterworth_hp_img)))
+# Gaussian highpass filter
+def gaussian_highpass_filter(img, cutoff):
+    M, N = img.shape
+    center = (M//2, N//2)
+    u, v = np.meshgrid(np.arange(N)-center[1], np.arange(M)-center[0])
+    D = np.sqrt(u**2 + v**2)
+    H = 1 - np.exp(-0.5*(D/cutoff)**2)
+    F = np.fft.fft2(img)
+    Fshift = np.fft.fftshift(F)
+    Gshift = H * Fshift
+    G = np.fft.ifftshift(Gshift)
+    g = np.fft.ifft2(G).real
+    return g
 
-# membuat filter Gaussian Highpass
-# membuat 2D filter Gaussian highpass  with standard dengan standar deviasi 5
-gaussian_hp = np.zeros((rows, cols))
-sigma = 5
-for i in range(rows):
-    for j in range(cols):
-        gaussian_hp[i, j] = 1 - np.exp(-((i - rows/2)**2 + (j - cols/2)**2) / (2 * sigma**2))
+# Apply Butterworth highpass filter
+cutoff = 50
+order = 4
+img_butterworth = butterworth_highpass_filter(img, cutoff, order)
 
-# terapkan filter
-gaussian_hp_img = np.fft.fftshift(np.fft.fft2(img)) * gaussian_hp
-gaussian_hp_img = np.real(np.fft.ifft2(np.fft.ifftshift(gaussian_hp_img)))
+# Apply Gaussian highpass filter
+cutoff = 50
+img_gaussian = gaussian_highpass_filter(img, cutoff)
 
-# tampilkan gambar
-plt.subplot(2,2,1),plt.imshow(img, cmap = 'gray')
-plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-plt.subplot(2,2,2),plt.imshow(butterworth_hp_img, cmap = 'gray')
-plt.title('Butterworth Highpass Filter'), plt.xticks([]), plt.yticks([])
-plt.subplot(2,2,3),plt.imshow(gaussian_hp_img, cmap = 'gray')
-plt.title('Gaussian Highpass Filter'), plt.xticks([]), plt.yticks([])
+# Display the original and filtered images
+plt.subplot(1, 3, 1)
+plt.imshow(img, cmap='gray')
+plt.title('Original Image')
+
+plt.subplot(1, 3, 2)
+plt.imshow(img_butterworth, cmap='gray')
+plt.title('Butterworth Highpass Filtered Image')
+
+plt.subplot(1, 3, 3)
+plt.imshow(img_gaussian, cmap='gray')
+plt.title('Gaussian Highpass Filtered Image')
+
 plt.show()

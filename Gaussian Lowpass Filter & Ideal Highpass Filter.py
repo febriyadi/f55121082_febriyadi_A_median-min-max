@@ -1,60 +1,50 @@
+#Import semua library yang dibutuhkan
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-# Baca gambar masukan
-img = cv2.imread('image/max.jpg', cv2.IMREAD_GRAYSCALE)
+# Membaca citra
+img = cv2.imread('image/max.jpg', 0)
 
-# Hitung DFT gambar input
-dft = cv2.dft(np.float32(img), flags=cv2.DFT_COMPLEX_OUTPUT)
+# Menerapkan transformasi Fourier pada citra
+f = np.fft.fft2(img)
+fshift = np.fft.fftshift(f)
 
-# Geser DFT ke tengah
-dft_shift = np.fft.fftshift(dft)
-
-#Buat topeng untuk Gaussian lowpass filter
+# Menentukan ukuran filter
 rows, cols = img.shape
-crow, ccol = rows//2, cols//2
-D0_lp = 50  # Atur frekuensi cutoff untuk filter lowpass di sini
-mask_lp = np.zeros((rows, cols, 2), np.uint8)
+crow, ccol = int(rows/2), int(cols/2)
+
+# Membuat filter Gaussian lowpass
+mask_gaussian = np.zeros((rows, cols), np.uint8)
+r = 50
+d = 2*r
 for i in range(rows):
     for j in range(cols):
-        dist = np.sqrt((i-crow)**2 + (j-ccol)**2)
-        mask_lp[i, j] = np.exp(-(dist**2) / (2*(D0_lp**2)))
+        distance = np.sqrt((i - crow)**2 + (j - ccol)**2)
+        mask_gaussian[i, j] = np.exp(-distance**2 / (2*d**2))
 
-# Terapkan topeng ke DFT untuk filter lowpass
-dft_filtered_lp = dft_shift * mask_lp
+# Menerapkan filter Gaussian lowpass pada spektrum frekuensi
+fshift_filtered_gaussian = fshift * mask_gaussian
 
-# Buat topeng untuk filter highpass Ideal
-D0_hp = 50  # Atur frekuensi cutoff untuk filter highpass di sini
-mask_hp = np.ones((rows, cols, 2), np.uint8)
-for i in range(rows):
-    for j in range(cols):
-        dist = np.sqrt((i-crow)**2 + (j-ccol)**2)
-        if dist < D0_hp:
-            mask_hp[i, j] = 0
+# Menerapkan inverse transformasi Fourier pada spektrum frekuensi yang difilter
+img_filtered_gaussian = np.fft.ifft2(np.fft.ifftshift(fshift_filtered_gaussian))
 
-# Terapkan topeng ke DFT untuk filter highpass
-dft_filtered_hp = dft_shift * mask_hp
+# Membuat filter Ideal highpass
+mask_ideal = np.ones((rows, cols), np.uint8)
+r = 50
+mask_ideal[crow-r:crow+r, ccol-r:ccol+r] = 0
 
-# Geser DFT kembali ke asal untuk filter lowpass
-dft_filtered_shift_lp = np.fft.ifftshift(dft_filtered_lp)
+# Menerapkan filter Ideal highpass pada spektrum frekuensi
+fshift_filtered_ideal = fshift * mask_ideal
 
-# Geser DFT kembali ke asal untuk filter highpass
-dft_filtered_shift_hp = np.fft.ifftshift(dft_filtered_hp)
+# Menerapkan inverse transformasi Fourier pada spektrum frekuensi yang difilter
+img_filtered_ideal = np.fft.ifft2(np.fft.ifftshift(fshift_filtered_ideal))
 
-# Balikkan DFT untuk mendapatkan gambar yang difilter untuk filter lowpass
-img_filtered_lp = cv2.idft(dft_filtered_shift_lp)
-img_filtered_lp = cv2.magnitude(img_filtered_lp[:, :, 0], img_filtered_lp[:, :, 1])
-
-# Balikkan DFT untuk mendapatkan gambar yang difilter untuk filter highpass
-img_filtered_hp = cv2.idft(dft_filtered_shift_hp)
-img_filtered_hp = cv2.magnitude(img_filtered_hp[:, :, 0], img_filtered_hp[:, :, 1])
-
-# Tampilkan gambar yang difilter
-plt.subplot(131), plt.imshow(img, cmap='gray')
-plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-plt.subplot(132), plt.imshow(img_filtered_lp, cmap='gray')
-plt.title('Gaussian Lowpass Filtered Image'), plt.xticks([]), plt.yticks([])
-plt.subplot(133), plt.imshow(img_filtered_hp, cmap='gray')
-plt.title('Ideal Highpass Filtered Image'), plt.xticks([]), plt.yticks([])
+# Menampilkan citra asli dan citra yang telah difilter
+plt.subplot(231),plt.imshow(img, cmap = 'gray')
+plt.title('Original'), plt.xticks([]), plt.yticks([])
+plt.subplot(232),plt.imshow(np.abs(img_filtered_gaussian), cmap = 'gray')
+plt.title('Gaussian Lowpass Filter'), plt.xticks([]), plt.yticks([])
+plt.subplot(233),plt.imshow(np.abs(img_filtered_ideal), cmap = 'gray')
+plt.title('Ideal Highpass Filter'), plt.xticks([]), plt.yticks([])
 plt.show()
